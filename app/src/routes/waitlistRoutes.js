@@ -1,8 +1,12 @@
 import express from "express";
-import { addToWaitlist } from "../controllers/waitlistController.js";
+import {
+  addToWaitlist,
+  checkInWaitlist,
+} from "../controllers/waitlistController.js";
 
 const router = express.Router();
 
 router.post("/add", addToWaitlist);
+router.get("/check", checkInWaitlist);
 
 export default router;

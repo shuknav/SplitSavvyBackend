@@ -26,3 +26,16 @@ export const addToWaitlist = async (req, res) => {
     console.log("DB Error:", err);
   }
 };
+
+export const checkInWaitlist = async (req, res) => {
+  const email = req.query.email;
+  try {
+    const checkStatus = await db.query(
+      "SELECT status FROM waitlists WHERE email = ($1)",
+      [email]
+    );
+    res.status(201).json(checkStatus.rows[0].status);
+  } catch (err) {
+    console.log("DB Error:", err);
+  }
+};
