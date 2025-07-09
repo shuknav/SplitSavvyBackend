@@ -30,11 +30,21 @@ export const addToWaitlist = async (req, res) => {
 export const checkInWaitlist = async (req, res) => {
   const email = req.query.email;
   try {
+    const checkUserExist = await db.query(
+      "SELECT * FROM users WHERE email = ($1)",
+      [email]
+    );
     const checkStatus = await db.query(
       "SELECT status FROM waitlists WHERE email = ($1)",
       [email]
     );
-    res.status(201).json(checkStatus.rows[0].status);
+    if (checkUserExist.rows.length > 0) {
+      res.status(200).json({ status: "user_exists" });
+    } else if (checkStatus.rows.length > 0) {
+      res.status(201).json(checkStatus.rows[0].status);
+    } else {
+      res.status(200).json({ status: "not_exists" });
+    }
   } catch (err) {
     console.log("DB Error:", err);
   }
