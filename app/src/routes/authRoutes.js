@@ -6,7 +6,7 @@ import {
 
 const router = express.Router();
 
-router.get("/check", loginEmailVerify);
-router.get("/login", loginVerify);
+router.get("/check", loginEmailVerify); //route handler for email address verification
+router.get("/login", loginVerify); //route handler to verify identity
 
 export default router;
