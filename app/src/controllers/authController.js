@@ -16,3 +16,21 @@ export const loginEmailVerify = async (req, res) => {
     console.log("Err", err);
   }
 };
+
+export const loginVerify = async (req, res) => {
+  const email = req.query.email;
+  const password = req.query.password;
+  try {
+    const checkEmailPresence = await db.query(
+      "SELECT * FROM users WHERE email = ($1)",
+      [email]
+    );
+    if (checkEmailPresence.rows[0].hashed_password == password) {
+      res.status(201).json({ status: "verified" });
+    } else {
+      res.status(201).json({ status: "not_verified" });
+    }
+  } catch (err) {
+    console.log("Err", err);
+  }
+};
