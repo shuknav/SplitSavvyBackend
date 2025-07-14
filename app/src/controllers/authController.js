@@ -1,4 +1,5 @@
 import db from "../db/client.js";
+import bcrypt from "bcrypt";
 
 //controller funciton for email verification
 export const loginEmailVerify = async (req, res) => {
@@ -23,20 +24,20 @@ export const loginEmailVerify = async (req, res) => {
 
 //controller function for user verification
 export const loginVerify = async (req, res) => {
-  const email = req.query.email;
-  const password = req.query.password;
-  try {
-    //need to update and use hashing right now storing and checking hardcoded passwords
-    const checkEmailPresence = await db.query(
-      "SELECT * FROM users WHERE email = ($1)",
-      [email]
-    );
-    if (checkEmailPresence.rows[0].hashed_password == password) {
-      res.status(201).json({ status: "verified" });
+  const { email, password } = req.body;
+  const response = await db.query("SELECT * FROM users WHERE email = ($1)", [
+    email,
+  ]);
+  const storedPassword = response.rows[0].hashed_password;
+  bcrypt.compare(password, storedPassword, (err, result) => {
+    if (err) {
+      console.log(err);
     } else {
-      res.status(201).json({ status: "not_verified" });
+      if (result) {
+        res.json({ result: true });
+      } else {
+        res.json({ result: false });
+      }
     }
-  } catch (err) {
-    console.log("Err", err);
-  }
+  });
 };
