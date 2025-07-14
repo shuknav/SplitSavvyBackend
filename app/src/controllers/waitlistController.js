@@ -41,14 +41,21 @@ export const checkInWaitlist = async (req, res) => {
     );
     const checkStatus = await db.query(
       //checking the user status
-      "SELECT status FROM waitlists WHERE email = ($1)",
+      "SELECT * FROM waitlists WHERE email = ($1)",
       [email]
     );
     if (checkUserExist.rows.length > 0) {
       res.status(200).json({ status: "user_exists" }); //returns as user already a memeber {edgecase}
     } else if (checkStatus.rows.length > 0) {
       //returns the status
-      res.status(201).json(checkStatus.rows[0].status);
+      const row = checkStatus.rows[0];
+      const fullName = `${row.first_name} ${row.last_name}`;
+      console.log(row.status);
+      console.log(fullName);
+      res.status(201).json({
+        status: row.status,
+        name: fullName,
+      });
     } else {
       res.status(200).json({ status: "not_exists" }); //error when user checking status without joining the waitlist {edgecase}
     }
