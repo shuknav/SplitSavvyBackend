@@ -2,7 +2,7 @@ import db from "../db/client.js";
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
-  const email = req.body.value;
+  const { firstName, lastName, email } = req.body;
   try {
     //checking if user already in waitlist{edgecase}
     const checkWaitlist = await db.query(
@@ -20,8 +20,8 @@ export const addToWaitlist = async (req, res) => {
       res.status(200).json({ status: "already_waitlisted" }); // shows already in waitlist{edgecase}
     } else {
       const result = await db.query(
-        "INSERT INTO waitlists (email) VALUES ($1) RETURNING *", //add to waitlist
-        [email]
+        "INSERT INTO waitlists (first_name, last_name, email) VALUES ($1, $2, $3) RETURNING *", //add to waitlist
+        [firstName, lastName, email]
       );
       res.status(201).json({ status: "waitlisted" });
     }
