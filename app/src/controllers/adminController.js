@@ -1,5 +1,7 @@
 import db from "../db/client.js";
 import bcrypt from "bcrypt";
+import "dotenv/config";
+import jwt from "jsonwebtoken";
 
 export const AdminIdentiyVerify = async (req, res) => {
   const { username, password } = req.body;
@@ -16,7 +18,10 @@ export const AdminIdentiyVerify = async (req, res) => {
       console.log(err);
     } else {
       if (result) {
-        res.json({ result: true, message: "welcome" });
+        const token = jwt.sign({ username }, process.env.JWT_SECRET, {
+          expiresIn: "30m",
+        });
+        res.json({ result: true, message: "welcome", token });
       } else {
         res.json({ result: false, message: "wrngpass" });
       }
