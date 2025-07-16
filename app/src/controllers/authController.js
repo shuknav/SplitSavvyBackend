@@ -46,3 +46,17 @@ export const loginVerify = async (req, res) => {
     }
   });
 };
+
+export const TokenVerify = async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.split(" ")[1];
+  if (!token) {
+    return res.json({ result: "No token" });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ result: "Verified" });
+  } catch (err) {
+    res.json({ result: "Invalid or expired token" });
+  }
+};
