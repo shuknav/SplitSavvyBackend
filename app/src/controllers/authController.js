@@ -1,5 +1,7 @@
 import db from "../db/client.js";
 import bcrypt from "bcrypt";
+import "dotenv/config";
+import jwt from "jsonwebtoken";
 
 //controller funciton for email verification
 export const loginEmailVerify = async (req, res) => {
@@ -34,7 +36,10 @@ export const loginVerify = async (req, res) => {
       console.log(err);
     } else {
       if (result) {
-        res.json({ result: true });
+        const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+          expiresIn: "30d",
+        });
+        res.json({ result: true, token });
       } else {
         res.json({ result: false });
       }
