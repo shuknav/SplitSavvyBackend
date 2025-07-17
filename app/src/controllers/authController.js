@@ -60,3 +60,22 @@ export const TokenVerify = async (req, res) => {
     res.json({ result: "Invalid or expired token" });
   }
 };
+
+export const UserDetails = async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const result = await db.query("SELECT * FROM users WHERE email = ($1)", [
+      decoded.email,
+    ]);
+    const userInfo = {
+      firstName: result.rows[0].first_name,
+      lastName: result.rows[0].last_name,
+      email: result.rows[0].email,
+    };
+    res.json(userInfo);
+  } catch (err) {
+    res.json({ result: "Invalid or expired token" });
+  }
+};
