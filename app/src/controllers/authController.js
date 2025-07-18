@@ -79,3 +79,29 @@ export const UserDetails = async (req, res) => {
     res.json({ result: "Invalid or expired token" });
   }
 };
+
+export const passChange = async (req, res) => {
+  const { oldPass, newPass } = req.body;
+  const response = await db.query("SELECT * FROM users WHERE email = ($1)", [
+    "testuser@example.com",
+  ]);
+  const storedPassword = response.rows[0].hashed_password;
+  bcrypt.compare(oldPass, storedPassword, async (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      if (result) {
+        const update = await db.query(
+          "UPDATE users SET hashed_pass WHERE email = ($1)",
+          ["testuser@example.com"]
+        );
+        const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+          expiresIn: "30d",
+        });
+        res.json({ result: true, token });
+      } else {
+        res.json({ result: false });
+      }
+    }
+  });
+};
