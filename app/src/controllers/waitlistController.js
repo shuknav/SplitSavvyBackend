@@ -1,5 +1,5 @@
 import db from "../db/client.js";
-import { sendTestEmail } from "../emails/testEmail.js";
+import { waitlistConfirmation } from "../emails/waitlistConfirmation.js";
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -24,7 +24,7 @@ export const addToWaitlist = async (req, res) => {
         "INSERT INTO waitlists (first_name, last_name, email) VALUES ($1, $2, $3) RETURNING *", //add to waitlist
         [firstName, lastName, email]
       );
-      await sendTestEmail(email);
+      await waitlistConfirmation(email, firstName);
       res.status(201).json({ status: "waitlisted" });
     }
   } catch (err) {
