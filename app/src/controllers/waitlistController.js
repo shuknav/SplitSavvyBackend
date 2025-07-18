@@ -1,5 +1,6 @@
 import db from "../db/client.js";
 import { waitlistConfirmation } from "../emails/waitlistConfirmation.js";
+import { waitlistReject } from "../emails/waitlistReject.js";
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -64,4 +65,9 @@ export const checkInWaitlist = async (req, res) => {
   } catch (err) {
     console.log("DB Error:", err);
   }
+};
+
+//mail checker only for testing
+export const emailChecker = async (req, res) => {
+  await waitlistReject("akshatshukla399@gmail.com", "Abhinav");
 };
