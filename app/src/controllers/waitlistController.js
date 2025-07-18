@@ -1,10 +1,5 @@
 import db from "../db/client.js";
 import { waitlistConfirmation } from "../emails/waitlistConfirmation.js";
-import { waitlistReject } from "../emails/waitlistReject.js";
-import { waitlistAccept } from "../emails/waitlistAccept.js";
-import { firstLogin } from "../emails/firstLogin.js";
-import { onboard } from "../emails/onboard.js";
-import { passwordReset } from "../emails/passwordReset.js";
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -69,13 +64,4 @@ export const checkInWaitlist = async (req, res) => {
   } catch (err) {
     console.log("DB Error:", err);
   }
-};
-
-//mail checker only for testing
-export const emailChecker = async (req, res) => {
-  await passwordReset(
-    "akshatshukla399@gmail.com",
-    "Abhinav",
-    "https://www.youtube.com/watch?v=xvFZjo5PgG0"
-  );
 };

@@ -4,4 +4,3 @@ export { firstLogin } from "./firstLogin.js";
 export { onboard } from "./onboard.js";
 export { passwordReset } from "./passwordReset.js";
 export { waitlistConfirmation } from "./waitlistConfirmation.js";
-export { sendTestEmail } from "./testEmail.js";
