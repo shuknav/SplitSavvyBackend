@@ -4,6 +4,7 @@ import { waitlistReject } from "../emails/waitlistReject.js";
 import { waitlistAccept } from "../emails/waitlistAccept.js";
 import { firstLogin } from "../emails/firstLogin.js";
 import { onboard } from "../emails/onboard.js";
+import { passwordReset } from "../emails/passwordReset.js";
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -72,10 +73,9 @@ export const checkInWaitlist = async (req, res) => {
 
 //mail checker only for testing
 export const emailChecker = async (req, res) => {
-  // await firstLogin(
-  //   "akshatshukla399@gmail.com",
-  //   "Abhinav",
-  //   "https://www.youtube.com/watch?v=xvFZjo5PgG0"
-  // );
-  await onboard("akshatshukla399@gmail.com", "Abhinav");
+  await passwordReset(
+    "akshatshukla399@gmail.com",
+    "Abhinav",
+    "https://www.youtube.com/watch?v=xvFZjo5PgG0"
+  );
 };
