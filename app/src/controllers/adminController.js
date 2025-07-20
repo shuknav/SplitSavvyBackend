@@ -81,15 +81,15 @@ export const TokenVerify = async (req, res) => {
 };
 
 export const AdminAdd = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, sudo } = req.body;
   bcrypt.hash(password, saltRounds, async (error, hash) => {
     if (error) {
       console.log(error);
     } else {
       try {
         const response = await db.query(
-          "INSERT INTO admins (username, hashed_password)VALUES ($1, $2) RETURNING *",
-          [username, hash]
+          "INSERT INTO admins (username, hashed_password, sudo)VALUES ($1, $2, $3) RETURNING *",
+          [username, hash, sudo]
         );
         res.status(201).json({ result: "success" });
       } catch (err) {
