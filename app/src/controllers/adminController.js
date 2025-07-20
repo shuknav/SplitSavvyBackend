@@ -79,3 +79,22 @@ export const TokenVerify = async (req, res) => {
     res.json({ result: "Invalid or expired token" });
   }
 };
+
+export const AdminAdd = async (req, res) => {
+  const { username, password } = req.body;
+  bcrypt.hash(password, saltRounds, async (error, hash) => {
+    if (error) {
+      console.log(error);
+    } else {
+      try {
+        const response = await db.query(
+          "INSERT INTO admins (username, hashed_password)VALUES ($1, $2) RETURNING *",
+          [username, hash]
+        );
+        res.status(201).json({ result: "success" });
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  });
+};
