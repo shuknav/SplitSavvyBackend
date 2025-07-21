@@ -134,3 +134,19 @@ export const SuperUserPermissions = async (req, res) => {
     console.log(err);
   }
 };
+
+export const isSuperUser = async (req, res) => {
+  const { token } = req.body;
+  const data = jwt.verify(token, process.env.JWT_SECRET);
+  const username = data.username;
+  try {
+    const response = await db.query(
+      "SELECT super_user FROM admins WHERE username = ($1)",
+      [username]
+    );
+    const result = response.rows[0].super_user;
+    res.status(200).json({ result });
+  } catch (err) {
+    console.log(err);
+  }
+};
