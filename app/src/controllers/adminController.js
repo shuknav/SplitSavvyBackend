@@ -82,21 +82,30 @@ export const TokenVerify = async (req, res) => {
 
 export const AdminAdd = async (req, res) => {
   const { username, password, superUser } = req.body;
-  bcrypt.hash(password, saltRounds, async (error, hash) => {
-    if (error) {
-      console.log(error);
-    } else {
-      try {
-        const response = await db.query(
-          "INSERT INTO admins (username, hashed_password, super_user)VALUES ($1, $2, $3) RETURNING *",
-          [username, hash, superUser]
-        );
-        res.status(201).json({ result: "success" });
-      } catch (err) {
-        console.log(err);
+  const lowercaseUsername = username.toLowerCase();
+  const usernameCheck = await db.query(
+    "SELECT * FROM admins WHERE username = ($1)",
+    [lowercaseUsername]
+  );
+  if (usernameCheck.rows.length > 0) {
+    res.json({ result: "notavailable" });
+  } else {
+    bcrypt.hash(password, saltRounds, async (error, hash) => {
+      if (error) {
+        console.log(error);
+      } else {
+        try {
+          const response = await db.query(
+            "INSERT INTO admins (username, hashed_password, super_user)VALUES ($1, $2, $3) RETURNING *",
+            [lowercaseUsername, hash, superUser]
+          );
+          res.status(201).json({ result: "success" });
+        } catch (err) {
+          console.log(err);
+        }
       }
-    }
-  });
+    });
+  }
 };
 
 export const FetchAdminList = async (req, res) => {
