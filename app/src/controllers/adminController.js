@@ -33,8 +33,9 @@ export const AdminIdentiyVerify = async (req, res) => {
 };
 
 export const PasswordUpdate = async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  const username = "whisker";
+  const { oldPassword, newPassword, token } = req.body;
+  const data = jwt.verify(token, process.env.JWT_SECRET);
+  const username = data.username;
   const response = await db.query(
     "SELECT * FROM admins where username = ($1)",
     [username]
