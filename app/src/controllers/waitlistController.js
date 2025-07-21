@@ -1,5 +1,8 @@
 import db from "../db/client.js";
 import { waitlistConfirmation } from "../emails/waitlistConfirmation.js";
+import { waitlistReject } from "../emails/waitlistReject.js";
+import { firstLogin } from "../emails/firstLogin.js";
+import { waitlistAccept } from "../emails/waitlistAccept.js";
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -63,5 +66,52 @@ export const checkInWaitlist = async (req, res) => {
     }
   } catch (err) {
     console.log("DB Error:", err);
+  }
+};
+
+export const fetchWaitlistData = async (req, res) => {
+  try {
+    const response = await db.query(
+      "SELECT * FROM waitlists ORDER BY CASE status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 WHEN 'cancelled' THEN 3 END"
+    );
+    const result = response.rows;
+    res.status(200).json({ result });
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+export const ApproveWaitlist = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const response = await db.query(
+      "UPDATE waitlists SET status = ($1) WHERE email = ($2) RETURNING first_name",
+      ["approved", email]
+    );
+    const firstName = response.rows[0].first_name;
+    await waitlistAccept(email, firstName);
+    await firstLogin(
+      email,
+      firstName,
+      "https://www.youtube.com/watch?v=xvFZjo5PgG0"
+    );
+    res.status(200).json({ result: "success" });
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+export const RejectWaitlist = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const response = await db.query(
+      "UPDATE waitlists SET status = ($1) WHERE email = ($2) RETURNING first_name",
+      ["cancelled", email]
+    );
+    const firstName = response.rows[0].first_name;
+    await waitlistReject(email, firstName);
+    res.status(200).json({ result: "success" });
+  } catch (err) {
+    console.log(err);
   }
 };
