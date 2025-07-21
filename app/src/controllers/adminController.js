@@ -98,3 +98,26 @@ export const AdminAdd = async (req, res) => {
     }
   });
 };
+
+export const FetchAdminList = async (req, res) => {
+  try {
+    const response = await db.query("SELECT username,sudo FROM admins");
+    const result = response.rows;
+    res.status(200).json({ result });
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+export const SudoPermissions = async (req, res) => {
+  const { username, sudo } = req.body;
+  try {
+    const response = await db.query(
+      "UPDATE admins SET sudo = ($1) WHERE username = ($2)",
+      [sudo, username]
+    );
+    res.status(200).json({ result: "success" });
+  } catch (err) {
+    console.log(err);
+  }
+};
