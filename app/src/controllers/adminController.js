@@ -7,9 +7,10 @@ const saltRounds = 12;
 
 export const AdminIdentiyVerify = async (req, res) => {
   const { username, password } = req.body;
+  const lowercaseUsername = username.toLowerCase();
   const response = await db.query(
     "SELECT * FROM admins where username = ($1)",
-    [username]
+    [lowercaseUsername]
   );
   if (response.rows.length === 0) {
     return res.status(200).json({ result: false, message: "notadmin" });
