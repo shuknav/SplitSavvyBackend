@@ -81,15 +81,15 @@ export const TokenVerify = async (req, res) => {
 };
 
 export const AdminAdd = async (req, res) => {
-  const { username, password, sudo } = req.body;
+  const { username, password, superUser } = req.body;
   bcrypt.hash(password, saltRounds, async (error, hash) => {
     if (error) {
       console.log(error);
     } else {
       try {
         const response = await db.query(
-          "INSERT INTO admins (username, hashed_password, sudo)VALUES ($1, $2, $3) RETURNING *",
-          [username, hash, sudo]
+          "INSERT INTO admins (username, hashed_password, super_user)VALUES ($1, $2, $3) RETURNING *",
+          [username, hash, superUser]
         );
         res.status(201).json({ result: "success" });
       } catch (err) {
@@ -101,7 +101,9 @@ export const AdminAdd = async (req, res) => {
 
 export const FetchAdminList = async (req, res) => {
   try {
-    const response = await db.query("SELECT username,sudo FROM admins");
+    const response = await db.query(
+      "SELECT admin_id, username, super_user, super_admin FROM admins ORDER BY admin_id"
+    );
     const result = response.rows;
     res.status(200).json({ result });
   } catch (err) {
@@ -109,12 +111,12 @@ export const FetchAdminList = async (req, res) => {
   }
 };
 
-export const SudoPermissions = async (req, res) => {
-  const { username, sudo } = req.body;
+export const SuperUserPermissions = async (req, res) => {
+  const { username, superUser } = req.body;
   try {
     const response = await db.query(
-      "UPDATE admins SET sudo = ($1) WHERE username = ($2)",
-      [sudo, username]
+      "UPDATE admins SET super_user = ($1) WHERE username = ($2)",
+      [superUser, username]
     );
     res.status(200).json({ result: "success" });
   } catch (err) {

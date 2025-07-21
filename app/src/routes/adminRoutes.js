@@ -5,7 +5,7 @@ import {
   PasswordUpdate,
   AdminAdd,
   FetchAdminList,
-  SudoPermissions,
+  SuperUserPermissions,
 } from "../controllers/adminController.js";
 
 const router = express.Router();
@@ -16,6 +16,6 @@ router.post("/add", AdminAdd);
 router.get("/tokenverify", TokenVerify);
 router.post("/passwordupdate", PasswordUpdate);
 router.post("/list", FetchAdminList);
-router.post("/sudopermissions", SudoPermissions);
+router.post("/superuserpermissions", SuperUserPermissions);
 
 export default router;
