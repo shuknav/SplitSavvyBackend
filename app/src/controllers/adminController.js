@@ -60,7 +60,7 @@ export const PasswordUpdate = async (req, res) => {
           }
         });
       } else {
-        res.json({ result: "incorrect current password" });
+        res.json({ result: "wrngpassword" });
       }
     }
   });
