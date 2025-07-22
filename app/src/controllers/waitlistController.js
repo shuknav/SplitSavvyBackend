@@ -1,8 +1,14 @@
 import db from "../db/client.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import "dotenv/config";
 import { waitlistConfirmation } from "../emails/waitlistConfirmation.js";
 import { waitlistReject } from "../emails/waitlistReject.js";
 import { firstLogin } from "../emails/firstLogin.js";
 import { waitlistAccept } from "../emails/waitlistAccept.js";
+import { onboard } from "../emails/onboard.js";
+
+const saltRounds = 12;
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -85,17 +91,47 @@ export const ApproveWaitlist = async (req, res) => {
   const { email } = req.body;
   try {
     const response = await db.query(
-      "UPDATE waitlists SET status = ($1) WHERE email = ($2) RETURNING first_name",
+      "UPDATE waitlists SET status = ($1) WHERE email = ($2) RETURNING *",
       ["approved", email]
     );
-    const firstName = response.rows[0].first_name;
-    await waitlistAccept(email, firstName);
-    await firstLogin(
-      email,
-      firstName,
-      "https://www.youtube.com/watch?v=xvFZjo5PgG0"
+    const userDetails = {
+      firstName: response.rows[0].first_name,
+      lastName: response.rows[0].last_name,
+      email: response.rows[0].email,
+    };
+    await waitlistAccept(userDetails.email, userDetails.firstName);
+    const token = jwt.sign(
+      {
+        method: "create",
+        firstName: userDetails.firstName,
+        lastName: userDetails.lastName,
+        email: userDetails.email,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
     );
-    res.status(200).json({ result: "success" });
+    bcrypt.hash(token, saltRounds, async (err, hash) => {
+      if (err) {
+        console.log(err);
+      } else {
+        try {
+          await db.query(
+            "UPDATE waitlists SET hashed_token = ($1), is_token_valid = ($2) WHERE email = ($3)",
+            [hash, true, userDetails.email]
+          );
+          await firstLogin(
+            userDetails.email,
+            userDetails.firstName,
+            `${process.env.FRONTEND_URL}/setpassword?token=${token}`
+          );
+          res.status(200).json({ result: "success" });
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    });
   } catch (err) {
     console.log(err);
   }
@@ -111,6 +147,81 @@ export const RejectWaitlist = async (req, res) => {
     const firstName = response.rows[0].first_name;
     await waitlistReject(email, firstName);
     res.status(200).json({ result: "success" });
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+export const tokenValidation = async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const response = await db.query(
+      "SELECT * FROM waitlists WHERE email = ($1)",
+      [decoded.email]
+    );
+    bcrypt.compare(
+      token,
+      response.rows[0].hashed_token,
+      async (err, result) => {
+        if (err) {
+          console.log(err);
+        }
+        if (!result) {
+          return res.json({
+            result: false,
+            message: "Token mismatch. Please request a new link.",
+          });
+        } else if (result && response.rows[0].is_token_valid) {
+          const mode = decoded.method;
+          res.json({ result, mode });
+        } else {
+          res.json({
+            result: false,
+            message: "Link no longer valid. Contact support for help.",
+          });
+        }
+      }
+    );
+  } catch (err) {
+    res.json({ result: false, message: "Invalid or expired token" });
+  }
+};
+
+export const onBoardUser = async (req, res) => {
+  const { token, password } = req.body;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const validityCheck = await db.query(
+      "SELECT is_token_valid FROM waitlists WHERE email = ($1)",
+      [decoded.email]
+    );
+    if (validityCheck.rows[0].is_token_valid) {
+      bcrypt.hash(password, saltRounds, async (err, hash) => {
+        if (err) {
+          console.log(err);
+        } else {
+          try {
+            const response = await db.query(
+              "INSERT INTO users (email, first_name, last_name, hashed_password) VALUES ($1, $2, $3, $4) RETURNING *",
+              [decoded.email, decoded.firstName, decoded.lastName, hash]
+            );
+            if (response.rows.length === 0) {
+              res.json({ result: "failed" });
+            } else {
+              await db.query("DELETE FROM waitlists WHERE email=($1)", [
+                decoded.email,
+              ]);
+              await onboard(decoded.email, decoded.firstName);
+              res.json({ result: "success" });
+            }
+          } catch (err) {
+            console.log(err);
+          }
+        }
+      });
+    }
   } catch (err) {
     console.log(err);
   }
