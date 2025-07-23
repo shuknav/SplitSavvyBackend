@@ -2,6 +2,9 @@ import db from "../db/client.js";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import { passwordReset } from "../emails/passwordReset.js";
+
+const saltRounds = 12;
 
 //controller funciton for email verification
 export const loginEmailVerify = async (req, res) => {
@@ -104,4 +107,62 @@ export const passChange = async (req, res) => {
       }
     }
   });
+};
+
+export const resetPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const data = await db.query("SELECT * FROM users WHERE email = ($1)", [
+      email,
+    ]);
+    if (data.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ result: "not_found", message: "User not found." });
+    }
+    const user = data.rows[0];
+    const token = jwt.sign(
+      {
+        method: "reset",
+        firstName: user.first_name,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+    bcrypt.hash(token, saltRounds, async (error, hash) => {
+      if (error) {
+        return res
+          .status(500)
+          .json({ result: "error", message: "Token hashing failed" });
+      } else {
+        try {
+          const response = await db.query(
+            "UPDATE users SET hashed_token = ($1), is_token_valid = ($2) WHERE email = ($3) RETURNING user_id",
+            [hash, true, email]
+          );
+          if (response.rows.length === 0) {
+            return res.status(500).json({
+              result: "error",
+              message: "Failed to update user with token",
+            });
+          }
+          await passwordReset(
+            email,
+            user.first_name,
+            `${process.env.FRONTEND_URL}/setpassword?token=${token}`
+          );
+          res
+            .status(200)
+            .json({ result: "success", message: "Reset link sent" });
+        } catch (err) {
+          res
+            .status(500)
+            .json({ result: "error", message: "Database update failed" });
+        }
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ result: "error", message: "Server error" });
+  }
 };
