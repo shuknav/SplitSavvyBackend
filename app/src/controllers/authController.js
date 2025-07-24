@@ -116,9 +116,7 @@ export const resetPassword = async (req, res) => {
       email,
     ]);
     if (data.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ result: "not_found", message: "User not found." });
+      return res.status(404).json({ message: "User not found." });
     }
     const user = data.rows[0];
     const token = jwt.sign(
@@ -132,9 +130,7 @@ export const resetPassword = async (req, res) => {
     );
     bcrypt.hash(token, saltRounds, async (error, hash) => {
       if (error) {
-        return res
-          .status(500)
-          .json({ result: "error", message: "Token hashing failed" });
+        return res.status(500).json({ message: "Token hashing failed" });
       } else {
         try {
           const response = await db.query(
@@ -143,7 +139,6 @@ export const resetPassword = async (req, res) => {
           );
           if (response.rows.length === 0) {
             return res.status(500).json({
-              result: "error",
               message: "Failed to update user with token",
             });
           }
@@ -152,17 +147,13 @@ export const resetPassword = async (req, res) => {
             user.first_name,
             `${process.env.FRONTEND_URL}/setpassword?token=${token}`
           );
-          res
-            .status(200)
-            .json({ result: "success", message: "Reset link sent" });
+          res.status(200).json({ message: "Reset link sent" });
         } catch (err) {
-          res
-            .status(500)
-            .json({ result: "error", message: "Database update failed" });
+          res.status(500).json({ message: "Database update failed" });
         }
       }
     });
   } catch (err) {
-    res.status(500).json({ result: "error", message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
