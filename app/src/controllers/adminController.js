@@ -40,6 +40,20 @@ export const adminIdentiyVerify = async (req, res) => {
   }
 };
 
+export const tokenVerify = async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) return res.status(404).json({ message: "No token" });
+
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    res.status(200).json({ message: "Verified" });
+  } catch (err) {
+    res.status(401).json({ message: "Invalid or expired token" });
+  }
+};
+
 export const PasswordUpdate = async (req, res) => {
   const { oldPassword, newPassword, token } = req.body;
   const data = jwt.verify(token, process.env.JWT_SECRET);
@@ -74,20 +88,6 @@ export const PasswordUpdate = async (req, res) => {
       }
     }
   });
-};
-
-export const TokenVerify = async (req, res) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader?.split(" ")[1];
-
-  if (!token) return res.json({ result: "No token" });
-
-  try {
-    jwt.verify(token, process.env.JWT_SECRET);
-    res.json({ result: "Verified" });
-  } catch (err) {
-    res.json({ result: "Invalid or expired token" });
-  }
 };
 
 export const AdminAdd = async (req, res) => {
