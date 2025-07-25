@@ -5,31 +5,39 @@ import jwt from "jsonwebtoken";
 
 const saltRounds = 12;
 
-export const AdminIdentiyVerify = async (req, res) => {
+export const adminIdentiyVerify = async (req, res) => {
   const { username, password } = req.body;
   const lowercaseUsername = username.toLowerCase();
-  const response = await db.query(
-    "SELECT * FROM admins where username = ($1)",
-    [lowercaseUsername]
-  );
-  if (response.rows.length === 0) {
-    return res.status(200).json({ result: false, message: "notadmin" });
-  }
-  const storedPassword = response.rows[0].hashed_password;
-  bcrypt.compare(password, storedPassword, (err, result) => {
-    if (err) {
-      console.log(err);
-    } else {
-      if (result) {
-        const token = jwt.sign({ username }, process.env.JWT_SECRET, {
-          expiresIn: "30m",
-        });
-        res.json({ result: true, message: "welcome", token });
-      } else {
-        res.json({ result: false, message: "wrngpass" });
-      }
+  try {
+    const response = await db.query(
+      "SELECT * FROM admins where username = ($1)",
+      [lowercaseUsername]
+    );
+    if (response.rows.length === 0) {
+      return res.status(404).json({ message: "Admin not found" });
     }
-  });
+    const storedPassword = response.rows[0].hashed_password;
+    bcrypt.compare(password, storedPassword, (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: "Password comparision failed" });
+      } else {
+        try {
+          if (result) {
+            const token = jwt.sign({ username }, process.env.JWT_SECRET, {
+              expiresIn: "30m",
+            });
+            res.status(200).json({ message: "Admin Verified", token });
+          } else {
+            res.status(401).json({ message: "Incorrect password" });
+          }
+        } catch (err) {
+          res.status(500).json({ message: "Token generation failed" });
+        }
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server Error" });
+  }
 };
 
 export const PasswordUpdate = async (req, res) => {
