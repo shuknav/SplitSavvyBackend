@@ -91,56 +91,50 @@ export const passwordUpdate = async (req, res) => {
   }
 };
 
-export const AdminAdd = async (req, res) => {
+export const adminAdd = async (req, res) => {
   const { username, password, superUser } = req.body;
   const lowercaseUsername = username.toLowerCase();
-  const usernameCheck = await db.query(
-    "SELECT * FROM admins WHERE username = ($1)",
-    [lowercaseUsername]
-  );
-  if (usernameCheck.rows.length > 0) {
-    res.json({ result: "notavailable" });
-  } else {
-    bcrypt.hash(password, saltRounds, async (error, hash) => {
-      if (error) {
-        console.log(error);
-      } else {
-        try {
-          const response = await db.query(
-            "INSERT INTO admins (username, hashed_password, super_user)VALUES ($1, $2, $3) RETURNING *",
-            [lowercaseUsername, hash, superUser]
-          );
-          res.status(201).json({ result: "success" });
-        } catch (err) {
-          console.log(err);
-        }
-      }
-    });
+  try {
+    const usernameCheck = await db.query(
+      "SELECT * FROM admins WHERE username = ($1)",
+      [lowercaseUsername]
+    );
+    if (usernameCheck.rows.length > 0) {
+      return res.status(409).json({ message: "Username not available" });
+    }
+    const hashed = await hashAsync(password, saltRounds);
+    await db.query(
+      "INSERT INTO admins (username, hashed_password, super_user)VALUES ($1, $2, $3)",
+      [lowercaseUsername, hashed, superUser]
+    );
+    return res.status(201).json({ message: "Admin created" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-export const FetchAdminList = async (req, res) => {
+export const fetchAdminList = async (req, res) => {
   try {
     const response = await db.query(
       "SELECT admin_id, username, super_user, super_admin FROM admins ORDER BY admin_id"
     );
-    const result = response.rows;
-    res.status(200).json({ result });
+    const list = response.rows;
+    return res.status(200).json({ message: "Admin List", list });
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-export const SuperUserPermissions = async (req, res) => {
+export const superUserPermissions = async (req, res) => {
   const { username, superUser } = req.body;
   try {
-    const response = await db.query(
+    await db.query(
       "UPDATE admins SET super_user = ($1) WHERE username = ($2)",
       [superUser, username]
     );
-    res.status(200).json({ result: "success" });
+    res.status(200).json({ message: "Success" });
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -153,9 +147,9 @@ export const isSuperUser = async (req, res) => {
       "SELECT super_user FROM admins WHERE username = ($1)",
       [username]
     );
-    const result = response.rows[0].super_user;
-    res.status(200).json({ result });
+    const superUser = response.rows[0].super_user;
+    res.status(200).json({ message: "Success", superUser });
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
