@@ -2,8 +2,12 @@ import db from "../db/client.js";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import { promisify } from "util";
 
 const saltRounds = 12;
+
+const compareAsync = promisify(bcrypt.compare);
+const hashAsync = promisify(bcrypt.hash);
 
 export const adminIdentiyVerify = async (req, res) => {
   const { username, password } = req.body;
@@ -36,7 +40,7 @@ export const adminIdentiyVerify = async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -54,40 +58,37 @@ export const tokenVerify = async (req, res) => {
   }
 };
 
-export const PasswordUpdate = async (req, res) => {
+export const passwordUpdate = async (req, res) => {
   const { oldPassword, newPassword, token } = req.body;
-  const data = jwt.verify(token, process.env.JWT_SECRET);
-  const username = data.username;
-  const response = await db.query(
-    "SELECT * FROM admins where username = ($1)",
-    [username]
-  );
-  const storedPassword = response.rows[0].hashed_password;
-  bcrypt.compare(oldPassword, storedPassword, (err, result) => {
-    if (err) {
-      console.log(err);
-    } else {
-      if (result) {
-        bcrypt.hash(newPassword, saltRounds, async (error, hash) => {
-          if (error) {
-            console.log(error);
-          } else {
-            try {
-              const response = await db.query(
-                "UPDATE admins SET hashed_password = ($1) WHERE username = ($2)",
-                [hash, username]
-              );
-              res.json({ result: "Success" });
-            } catch (err) {
-              console.log(err);
-            }
-          }
-        });
-      } else {
-        res.json({ result: "wrngpassword" });
-      }
+  let username;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    username = decoded.username;
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+  try {
+    const response = await db.query(
+      "SELECT * FROM admins where username = ($1)",
+      [username]
+    );
+    if (response.rows.length === 0) {
+      return res.status(404).json({ message: "Admin not found" });
     }
-  });
+    const storedPassword = response.rows[0].hashed_password;
+    const match = await compareAsync(oldPassword, storedPassword);
+    if (!match) {
+      return res.status(401).json({ message: "Incorrect current password" });
+    }
+    const hashed = await hashAsync(newPassword, saltRounds);
+    await db.query(
+      "UPDATE admins SET hashed_password = ($1) WHERE username = ($2)",
+      [hashed, username]
+    );
+    return res.status(200).json({ message: "Password updated Successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
 export const AdminAdd = async (req, res) => {

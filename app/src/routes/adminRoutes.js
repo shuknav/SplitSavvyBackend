@@ -2,7 +2,7 @@ import express from "express";
 import {
   adminIdentiyVerify,
   tokenVerify,
-  PasswordUpdate,
+  passwordUpdate,
   AdminAdd,
   FetchAdminList,
   SuperUserPermissions,
@@ -13,8 +13,8 @@ const router = express.Router();
 
 router.post("/verify", adminIdentiyVerify); // route to handle admin verification
 router.get("/tokenverify", tokenVerify);
+router.post("/passwordupdate", passwordUpdate);
 router.post("/add", AdminAdd); // route to add new admin details
-router.post("/passwordupdate", PasswordUpdate);
 router.post("/list", FetchAdminList);
 router.post("/superuserpermissions", SuperUserPermissions);
 router.post("/issuperuser", isSuperUser);
