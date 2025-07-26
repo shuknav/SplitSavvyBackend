@@ -2,6 +2,7 @@ import db from "../db/client.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import "dotenv/config";
+import { promisify } from "util";
 import { waitlistConfirmation } from "../emails/waitlistConfirmation.js";
 import { waitlistReject } from "../emails/waitlistReject.js";
 import { firstLogin } from "../emails/firstLogin.js";
@@ -9,6 +10,9 @@ import { waitlistAccept } from "../emails/waitlistAccept.js";
 import { onboard } from "../emails/onboard.js";
 
 const saltRounds = 12;
+
+const compareAsync = promisify(bcrypt.compare);
+const hashAsync = promisify(bcrypt.hash);
 
 //controller function to add users to waitlist
 export const addToWaitlist = async (req, res) => {
@@ -25,19 +29,18 @@ export const addToWaitlist = async (req, res) => {
       [email]
     );
     if (checkUserExist.rows.length > 0) {
-      res.status(200).json({ status: "user_exists" }); //shows already a member{edgecase}
+      return res.status(409).json({ message: "User exists" }); //shows already a member{edgecase}
     } else if (checkWaitlist.rows.length > 0) {
-      res.status(200).json({ status: "already_waitlisted" }); // shows already in waitlist{edgecase}
-    } else {
-      const result = await db.query(
-        "INSERT INTO waitlists (first_name, last_name, email) VALUES ($1, $2, $3) RETURNING *", //add to waitlist
-        [firstName, lastName, email]
-      );
-      await waitlistConfirmation(email, firstName);
-      res.status(201).json({ status: "waitlisted" });
+      return res.status(409).json({ message: "Already waitlisted" }); // shows already in waitlist{edgecase}
     }
+    await db.query(
+      "INSERT INTO waitlists (first_name, last_name, email) VALUES ($1, $2, $3)", //add to waitlist
+      [firstName, lastName, email]
+    );
+    await waitlistConfirmation(email, firstName);
+    return res.status(201).json({ status: "waitlisted" });
   } catch (err) {
-    console.log("DB Error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -55,23 +58,23 @@ export const checkInWaitlist = async (req, res) => {
       "SELECT * FROM waitlists WHERE email = ($1)",
       [email]
     );
-    if (checkUserExist.rows.length > 0) {
-      res.status(200).json({ status: "user_exists" }); //returns as user already a memeber {edgecase}
-    } else if (checkStatus.rows.length > 0) {
-      //returns the status
-      const row = checkStatus.rows[0];
-      const fullName = `${row.first_name} ${row.last_name}`;
-      console.log(row.status);
-      console.log(fullName);
-      res.status(201).json({
-        status: row.status,
-        name: fullName,
-      });
-    } else {
-      res.status(200).json({ status: "not_exists" }); //error when user checking status without joining the waitlist {edgecase}
+    if (checkStatus.rows.length === 0) {
+      return res.status(404).json({ message: "User not on waitlist" }); //error when user checking status without joining the waitlist {edgecase}
     }
+    if (checkUserExist.rows.length > 0) {
+      return res.status(409).json({ message: "User exists" }); //returns as user already a memeber {edgecase}
+    }
+    //returns the status
+    const row = checkStatus.rows[0];
+    const fullName = `${row.first_name} ${row.last_name}`;
+    console.log(row.status);
+    console.log(fullName);
+    return res.status(200).json({
+      status: row.status,
+      name: fullName,
+    });
   } catch (err) {
-    console.log("DB Error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -81,13 +84,13 @@ export const fetchWaitlistData = async (req, res) => {
       "SELECT * FROM waitlists ORDER BY CASE status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 WHEN 'cancelled' THEN 3 END"
     );
     const result = response.rows;
-    res.status(200).json({ result });
+    res.status(200).json({ message: "Waitlist", result });
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-export const ApproveWaitlist = async (req, res) => {
+export const approveWaitlist = async (req, res) => {
   const { email } = req.body;
   try {
     const response = await db.query(
@@ -112,32 +115,23 @@ export const ApproveWaitlist = async (req, res) => {
         expiresIn: "7d",
       }
     );
-    bcrypt.hash(token, saltRounds, async (err, hash) => {
-      if (err) {
-        console.log(err);
-      } else {
-        try {
-          await db.query(
-            "UPDATE waitlists SET hashed_token = ($1), is_token_valid = ($2) WHERE email = ($3)",
-            [hash, true, userDetails.email]
-          );
-          await firstLogin(
-            userDetails.email,
-            userDetails.firstName,
-            `${process.env.FRONTEND_URL}/setpassword?token=${token}`
-          );
-          res.status(200).json({ result: "success" });
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    });
+    const hashed = await hashAsync(token, saltRounds);
+    await db.query(
+      "UPDATE waitlists SET hashed_token = ($1), is_token_valid = ($2) WHERE email = ($3)",
+      [hashed, true, userDetails.email]
+    );
+    await firstLogin(
+      userDetails.email,
+      userDetails.firstName,
+      `${process.env.FRONTEND_URL}/setpassword?token=${token}`
+    );
+    return res.status(200).json({ message: "Successfully accepted" });
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-export const RejectWaitlist = async (req, res) => {
+export const rejectWaitlist = async (req, res) => {
   const { email } = req.body;
   try {
     const response = await db.query(
@@ -146,9 +140,9 @@ export const RejectWaitlist = async (req, res) => {
     );
     const firstName = response.rows[0].first_name;
     await waitlistReject(email, firstName);
-    res.status(200).json({ result: "success" });
+    return res.status(200).json({ result: "Successfully rejected" });
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

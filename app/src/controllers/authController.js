@@ -2,9 +2,13 @@ import db from "../db/client.js";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import { promisify } from "util";
 import { passwordReset } from "../emails/passwordReset.js";
 
 const saltRounds = 12;
+
+const compareAsync = promisify(bcrypt.compare);
+const hashAsync = promisify(bcrypt.hash);
 
 //controller funciton for email verification
 export const loginEmailVerify = async (req, res) => {
@@ -17,54 +21,55 @@ export const loginEmailVerify = async (req, res) => {
     );
     if (checkEmailPresence.rows.length > 0) {
       //if exists moves to further step i.e. password field visibilty
-      res.status(201).json({ status: "user_exist" });
+      return res.status(201).json({ message: "User exist" });
     } else {
       // else shows the error page
-      res.status(201).json({ status: "user_not_exist" });
+      return res.status(404).json({ message: "User not found" });
     }
   } catch (err) {
-    console.log("Err", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 //controller function for user verification
 export const loginVerify = async (req, res) => {
   const { email, password } = req.body;
-  const response = await db.query("SELECT * FROM users WHERE email = ($1)", [
-    email,
-  ]);
-  const storedPassword = response.rows[0].hashed_password;
-  bcrypt.compare(password, storedPassword, (err, result) => {
-    if (err) {
-      console.log(err);
-    } else {
-      if (result) {
-        const token = jwt.sign({ email }, process.env.JWT_SECRET, {
-          expiresIn: "30d",
-        });
-        res.json({ result: true, token });
-      } else {
-        res.json({ result: false });
-      }
+  try {
+    const response = await db.query("SELECT * FROM users WHERE email = ($1)", [
+      email,
+    ]);
+    if (response.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
     }
-  });
+    const storedPassword = response.rows[0].hashed_password;
+    const match = await compareAsync(password, storedPassword);
+    if (!match) {
+      return res.status(401).json({ message: "Incorrect current password" });
+    }
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+      expiresIn: "30d",
+    });
+    return res.status(200).json({ message: "User verified", token });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
-export const TokenVerify = async (req, res) => {
+export const tokenVerify = async (req, res) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader?.split(" ")[1];
   if (!token) {
-    return res.json({ result: "No token" });
+    return res.status(400).json({ result: "Token not found" });
   }
   try {
     jwt.verify(token, process.env.JWT_SECRET);
-    res.json({ result: "Verified" });
+    return res.status(200).json({ message: "User verified" });
   } catch (err) {
-    res.json({ result: "Invalid or expired token" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-export const UserDetails = async (req, res) => {
+export const userDetails = async (req, res) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader?.split(" ")[1];
   try {
@@ -77,36 +82,10 @@ export const UserDetails = async (req, res) => {
       lastName: result.rows[0].last_name,
       email: result.rows[0].email,
     };
-    res.json(userInfo);
+    return res.status(200).json({ message: "User details", userInfo });
   } catch (err) {
-    res.json({ result: "Invalid or expired token" });
+    return res.status(500).json({ message: "Server error" });
   }
-};
-
-export const passChange = async (req, res) => {
-  const { oldPass, newPass } = req.body;
-  const response = await db.query("SELECT * FROM users WHERE email = ($1)", [
-    "testuser@example.com",
-  ]);
-  const storedPassword = response.rows[0].hashed_password;
-  bcrypt.compare(oldPass, storedPassword, async (err, result) => {
-    if (err) {
-      console.log(err);
-    } else {
-      if (result) {
-        const update = await db.query(
-          "UPDATE users SET hashed_pass WHERE email = ($1)",
-          ["testuser@example.com"]
-        );
-        const token = jwt.sign({ email }, process.env.JWT_SECRET, {
-          expiresIn: "30d",
-        });
-        res.json({ result: true, token });
-      } else {
-        res.json({ result: false });
-      }
-    }
-  });
 };
 
 export const resetPassword = async (req, res) => {
@@ -128,31 +107,17 @@ export const resetPassword = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "15m" }
     );
-    bcrypt.hash(token, saltRounds, async (error, hash) => {
-      if (error) {
-        return res.status(500).json({ message: "Token hashing failed" });
-      } else {
-        try {
-          const response = await db.query(
-            "UPDATE users SET hashed_token = ($1), is_token_valid = ($2) WHERE email = ($3) RETURNING user_id",
-            [hash, true, email]
-          );
-          if (response.rows.length === 0) {
-            return res.status(500).json({
-              message: "Failed to update user with token",
-            });
-          }
-          await passwordReset(
-            email,
-            user.first_name,
-            `${process.env.FRONTEND_URL}/setpassword?token=${token}`
-          );
-          res.status(200).json({ message: "Reset link sent" });
-        } catch (err) {
-          res.status(500).json({ message: "Database update failed" });
-        }
-      }
-    });
+    const hashed = await hashAsync(token, saltRounds);
+    await db.query(
+      "UPDATE users SET hashed_token = ($1), is_token_valid = ($2) WHERE email = ($3)",
+      [hashed, true, email]
+    );
+    await passwordReset(
+      email,
+      user.first_name,
+      `${process.env.FRONTEND_URL}/setpassword?token=${token}`
+    );
+    return res.status(200).json({ message: "Reset link sent" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
