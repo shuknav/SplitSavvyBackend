@@ -149,74 +149,67 @@ export const rejectWaitlist = async (req, res) => {
 export const tokenValidation = async (req, res) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader?.split(" ")[1];
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+  try {
     const response = await db.query(
       "SELECT * FROM waitlists WHERE email = ($1)",
       [decoded.email]
     );
-    bcrypt.compare(
-      token,
-      response.rows[0].hashed_token,
-      async (err, result) => {
-        if (err) {
-          console.log(err);
-        }
-        if (!result) {
-          return res.json({
-            result: false,
-            message: "Token mismatch. Please request a new link.",
-          });
-        } else if (result && response.rows[0].is_token_valid) {
-          const mode = decoded.method;
-          res.json({ result, mode });
-        } else {
-          res.json({
-            result: false,
-            message: "Link no longer valid. Contact support for help.",
-          });
-        }
-      }
-    );
+    const match = await compareAsync(token, response.rows[0].hashed_token);
+    if (!match) {
+      return res.status(401).json({ message: "Token mismatch" });
+    }
+    if (match && response.rows[0].is_token_valid) {
+      const mode = decoded.method;
+      return res.status(200).json({ message: "Success", mode });
+    } else {
+      return res
+        .status(401)
+        .json({ message: "Link no longer valid. Contact support for help." });
+    }
   } catch (err) {
-    res.json({ result: false, message: "Invalid or expired token" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 export const onBoardUser = async (req, res) => {
   const { token, password } = req.body;
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ message: "Some error occured" });
+  }
+  try {
     const validityCheck = await db.query(
       "SELECT is_token_valid FROM waitlists WHERE email = ($1)",
       [decoded.email]
     );
     if (validityCheck.rows[0].is_token_valid) {
-      bcrypt.hash(password, saltRounds, async (err, hash) => {
-        if (err) {
-          console.log(err);
-        } else {
-          try {
-            const response = await db.query(
-              "INSERT INTO users (email, first_name, last_name, hashed_password) VALUES ($1, $2, $3, $4) RETURNING *",
-              [decoded.email, decoded.firstName, decoded.lastName, hash]
-            );
-            if (response.rows.length === 0) {
-              res.json({ result: "failed" });
-            } else {
-              await db.query("DELETE FROM waitlists WHERE email=($1)", [
-                decoded.email,
-              ]);
-              await onboard(decoded.email, decoded.firstName);
-              res.json({ result: "success" });
-            }
-          } catch (err) {
-            console.log(err);
-          }
-        }
-      });
+      const hashed = await hashAsync(password, saltRounds);
+      const response = await db.query(
+        "INSERT INTO users (email, first_name, last_name, hashed_password) VALUES ($1, $2, $3, $4) RETURNING *",
+        [decoded.email, decoded.firstName, decoded.lastName, hashed]
+      );
+      if (response.rows.length === 0) {
+        return res
+          .status(500)
+          .json({ message: "Failed to update details to users" });
+      } else {
+        await db.query("DELETE FROM waitlists WHERE email=($1)", [
+          decoded.email,
+        ]);
+        await onboard(decoded.email, decoded.firstName);
+      }
+      return res.status(200).json({ message: "Success" });
+    } else {
     }
   } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
