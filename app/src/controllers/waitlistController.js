@@ -23,6 +23,9 @@ export const addToWaitlist = async (req, res) => {
       "SELECT * FROM waitlists WHERE email = ($1)",
       [email]
     );
+    if (checkWaitlist.rows.length > 0) {
+      return res.status(409).json({ message: "Already waitlisted" }); // shows already in waitlist{edgecase}
+    }
     // checking if user is already a member{edgecase}
     const checkUserExist = await db.query(
       "SELECT * FROM users WHERE email = ($1)",
@@ -30,15 +33,13 @@ export const addToWaitlist = async (req, res) => {
     );
     if (checkUserExist.rows.length > 0) {
       return res.status(409).json({ message: "User exists" }); //shows already a member{edgecase}
-    } else if (checkWaitlist.rows.length > 0) {
-      return res.status(409).json({ message: "Already waitlisted" }); // shows already in waitlist{edgecase}
     }
     await db.query(
       "INSERT INTO waitlists (first_name, last_name, email) VALUES ($1, $2, $3)", //add to waitlist
       [firstName, lastName, email]
     );
     await waitlistConfirmation(email, firstName);
-    return res.status(201).json({ status: "waitlisted" });
+    return res.status(201).json({ message: "Waitlisted" });
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
   }
