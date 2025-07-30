@@ -9,6 +9,9 @@ It handles all core logic including:
 - Admin controls
 - Logging of user/admin actions
 
+### 🔧 Progress Bar
+- 🟩🟩🟩🟨⬜⬜⬜⬜⬜⬜ 50% done
+
 ## Tech Stack
 
 - Node.js
